@@ -25,6 +25,6 @@ EPOCHS = 100
 MULTIPROCESSING = False
 WORKERS = 2
 
-params = {'batch_size': 10,
+params = {'batch_size': 2,
           'shuffle': True,
           'num_workers': 1}

@@ -96,6 +96,9 @@ if __name__ == '__main__':
     with open(f'{config.DATA_PATH}label_dict.pkl', 'rb') as f:
         labels = pkl.load(f)
 
+    print('loading GO-term matrix...')
+    GO_matrix = torch.load(f'{config.DATA_PATH}GO382_pathway_matrix.pt')
+  
     # Generators
     training_set = utils.Dependency_Dataset(partition['train'], labels)
     training_generator = torch.utils.data.DataLoader(training_set, **config.params)
@@ -110,7 +113,7 @@ if __name__ == '__main__':
     print('cuda is available:', torch.cuda.is_available())
 
     # Model and optimizer
-    model = model.TORTOISE_GCN(nnodes=nnodes, nfeat=1)
+    model = model.TORTOISE_GCN(nnodes=nnodes, nfeat=1, GO_mat=GO_matrix)
     if config.MULTIPROCESSING: model.share_memory()
     model.unfreeze_coupling(True)
     optimizer = optim.Adam(model.parameters(), lr=config.LR, weight_decay=config.L2)
