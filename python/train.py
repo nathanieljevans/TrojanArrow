@@ -33,7 +33,7 @@ def plot_weight_changes(new, old):
         try:
             f = plt.figure()
             plt.imshow(param_delta)
-            plt.savefig(f'./output/param_deltas/0{epoch}_{param}.png')
+            plt.savefig(f'{config.OUTPUT_PATH}param_deltas/0{epoch}_{param}.png')
             plt.close(f)
         except:
             print('plotting weight delta failed')
@@ -75,7 +75,7 @@ def train(model, scheduler, optimizer, loss_function, plotter, training_generato
 
     try:
         plotter.update(tr_ys, tr_yhats, tst_ys, tst_yhats, epoch, _loss, _vloss)
-        plotter.save_gif('./output/cancer107_training.gif')
+        plotter.save_gif(f'{config.OUTPUT_PATH}cancer107_training.gif')
     except:
         print('plotting failed. continuing...')
 
@@ -90,10 +90,10 @@ if __name__ == '__main__':
     torch.manual_seed(config.SEED)
 
     print('loading data generators ... ')
-    with open('./data/processed/cancer107/partition_dict.pkl', 'rb') as f:
+    with open(f'{config.DATA_PATH}partition_dict.pkl', 'rb') as f:
         partition = pkl.load(f)
 
-    with open('./data/processed/cancer107/label_dict.pkl', 'rb') as f:
+    with open(f'{config.DATA_PATH}label_dict.pkl', 'rb') as f:
         labels = pkl.load(f)
 
     # Generators
@@ -147,7 +147,7 @@ if __name__ == '__main__':
 
     print('training complete.')
 
-    with open('./output/model127.pkl', 'wb') as f:
+    with open(f'{config.OUTPUT_PATH}/model127.pkl', 'wb') as f:
         pkl.dump(model, f)
 
     print('model saved.')

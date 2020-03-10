@@ -9,6 +9,7 @@ from matplotlib import pyplot as plt
 from torch.utils import data
 import pickle as pkl
 import imageio
+import config
 
 
 class Dependency_Dataset(data.Dataset):
@@ -23,9 +24,9 @@ class Dependency_Dataset(data.Dataset):
         self.label_dict = labels
         self.list_IDs = list_IDs
 
-        self.ADJ = torch.load('./data/processed/cancer107/adjacency_matrix127.pt')
+        self.ADJ = torch.load(config.ADJ_PATH)
 
-        with open('./data/processed/cancer107/gene_order127.pkl', 'rb') as f:
+        with open(config.GENEORDER_PATH, 'rb') as f:
             self.gene_order = pkl.load(f)
 
 
@@ -44,7 +45,7 @@ class Dependency_Dataset(data.Dataset):
         target = self.label_dict[ID]['target']
 
         # load expression data for given cell line
-        EXPR = torch.reshape(torch.load(f'./data/processed/cancer107/expr/{self.label_dict[ID]["ccle_line"]}.pt'), (self.ADJ.size(0), 1))
+        EXPR = torch.reshape(torch.load(f'{config.EXPR_PATH}{self.label_dict[ID]["ccle_line"]}.pt'), (self.ADJ.size(0), 1))
 
         # remove connections to/from target gene - operate on target
         A = self.ADJ.clone().detach().type(torch.float32)

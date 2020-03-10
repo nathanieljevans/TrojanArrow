@@ -4,8 +4,6 @@ download data file stored on my personal google drive
 # modified based on this thread: https://stackoverflow.com/questions/38511444/python-download-files-from-google-drive-using-url
 '''
 
-
-
 import requests
 import zipfile
 import os
