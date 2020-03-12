@@ -97,7 +97,7 @@ if __name__ == '__main__':
         labels = pkl.load(f)
 
     print('loading GO-term matrix...')
-    GO_matrix = torch.load(f'{config.DATA_PATH}GO382_pathway_matrix.pt')
+    GO_matrix = torch.load(config.GO_MATRIX_PATH)
   
     # Generators
     training_set = utils.Dependency_Dataset(partition['train'], labels)
@@ -114,7 +114,7 @@ if __name__ == '__main__':
 
     # Model and optimizer
     model = model.TORTOISE_GCN(nnodes=nnodes, nfeat=1, GO_mat=GO_matrix)
-    
+
     model.unfreeze_coupling(True)
     optimizer = optim.Adam(model.parameters(), lr=config.LR, weight_decay=config.L2)
     loss_function = torch.nn.SmoothL1Loss()
