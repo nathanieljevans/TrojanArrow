@@ -114,7 +114,7 @@ if __name__ == '__main__':
 
     # Model and optimizer
     model = model.TORTOISE_GCN(nnodes=nnodes, nfeat=1, GO_mat=GO_matrix)
-    if config.MULTIPROCESSING: model.share_memory()
+    
     model.unfreeze_coupling(True)
     optimizer = optim.Adam(model.parameters(), lr=config.LR, weight_decay=config.L2)
     loss_function = torch.nn.SmoothL1Loss()
@@ -128,18 +128,8 @@ if __name__ == '__main__':
 
     print('beginning training... use multiprocessing:', config.MULTIPROCESSING)
     for epoch in range(config.EPOCHS):
-        #if epoch == 10:
-        #    model.unfreeze_coupling(True)
-        if (config.MULTIPROCESSING):
-            processes = []
-            for i in range(config.WORKERS):
-                p = mp.Process(target=train, args=(model, scheduler, optimizer, loss_function, plotter, training_generator, validation_generator, epoch,))
-                p.start()
-                processes.append(p)
-            for p in processes: p.join()
-        else:
-            train(model, scheduler, optimizer, loss_function, plotter, training_generator, validation_generator, epoch)
-
+        
+        train(model, scheduler, optimizer, loss_function, plotter, training_generator, validation_generator, epoch)
 
         new_state_dict = {}
         for key in model.state_dict():

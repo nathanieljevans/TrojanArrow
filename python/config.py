@@ -7,8 +7,8 @@
 #! ---------------------
 
 DATA_PATH = '../data/'
-ADJ_PATH = '../data/adjacency_matrix.pt'
-GENEORDER_PATH = '../data/gene_order.pkl'
+ADJ_PATH = '../data/MAPK-adjacency_matrix.pt'
+GENEORDER_PATH = '../data/MAPK-gene_order.pkl'
 EXPR_PATH = '../data/expr/'
 OUTPUT_PATH = '../output/'
 
@@ -25,6 +25,6 @@ EPOCHS = 100
 MULTIPROCESSING = False
 WORKERS = 2
 
-params = {'batch_size': 2,
+params = {'batch_size': 100,
           'shuffle': True,
-          'num_workers': 1}
+          'num_workers': 4}
