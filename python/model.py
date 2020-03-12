@@ -11,9 +11,9 @@ class TORTOISE_GCN(nn.Module):
         self.nnodes = nnodes
         self.nfeat = nfeat
                                   # nnodes,     in_features,    out_features,
-        self.gc1 = GraphConvolution(nnodes,     nfeat,          25)
-        self.gc2 = GraphConvolution(nnodes,     25,             10)
-        self.gc3 = GraphConvolution(nnodes,     10,              1)
+        self.gc1 = GraphConvolution(nnodes,     nfeat,          3)
+        self.gc2 = GraphConvolution(nnodes,     3,              3)
+        self.gc3 = GraphConvolution(nnodes,     3,              1)
 
         # lets learn edge weights, call it coupling=C
         self.C = nn.parameter.Parameter(torch.ones(nnodes, nnodes, dtype=torch.float32)).requires_grad_(True)
