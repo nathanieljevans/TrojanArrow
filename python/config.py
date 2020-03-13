@@ -27,7 +27,7 @@ LR = 1e-2
 L2 = 1e-6
 
 # Number Epochs 
-EPOCHS = 25
+EPOCHS = 100
 
 # Train on Subset 
 SHORT_EPOCHS = True      #! use this for hyperparameter optimization
@@ -37,5 +37,5 @@ EPOCH_SIZE = 100000
 params = {
           'batch_size'   :    100,
           'shuffle'      :    True,
-          'num_workers'  :    12
+          'num_workers'  :    6
           }

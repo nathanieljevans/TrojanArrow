@@ -141,7 +141,7 @@ if __name__ == '__main__':
     for key in model.state_dict():
         old_state_dict[key] = model.state_dict()[key].clone().cpu()
 
-    print('beginning training... use multiprocessing:', config.MULTIPROCESSING)
+    print('beginning training...')
     for epoch in range(config.EPOCHS):
         
         train(model, scheduler, optimizer, loss_function, plotter, training_generator, validation_generator, epoch, device=device)
