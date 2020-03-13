@@ -11,8 +11,8 @@ class TORTOISE_GCN(nn.Module):
         self.nnodes = nnodes
         self.nfeat = nfeat
                                   # nnodes,     in_features,    out_features,
-        self.gc1 = GraphConvolution(nnodes,     nfeat,          10)
-        self.gc2 = GraphConvolution(nnodes,     10,             10)
+        self.gc1 = GraphConvolution(nnodes,     nfeat,          25)
+        self.gc2 = GraphConvolution(nnodes,     25,             10)
         self.gc3 = GraphConvolution(nnodes,     10,              1)
 
         # lets learn edge weights, call it coupling=C
@@ -30,30 +30,26 @@ class TORTOISE_GCN(nn.Module):
         self.out2 = nn.parameter.Parameter(torch.FloatTensor(5, 1))
         self.out2.data.uniform_(-0.1, 0.1)
 
-    def get_node_activations(self, x, adj):
-        '''
-        same as forward, without the final summing step.
-        '''
-        x = F.leaky_relu( self.gc1(x, adj, self.C) )
-        x = F.leaky_relu( self.gc2(x, adj, self.C) )
-        x = F.leaky_relu( self.gc3(x, adj, self.C) )
-        x =               self.gc4(x, adj, self.C)
+    def forward(self, x, adj, return_activations=False):
 
-        x = x.squeeze(2)
-        return x
+        D = torch.sum(adj, axis=1)
+        Dinv = torch.pow(D,-0.5)
+        Dinv[Dinv==float("Inf")] = 0
+        Dinv = torch.diag_embed(Dinv)
+        Anorm = torch.bmm(Dinv, adj)
+        Anorm = torch.bmm(Anorm, Dinv)
 
-    def forward(self, x, adj):
-        x = F.leaky_relu( self.gc1(x, adj, self.C) )
-        x = F.leaky_relu( self.gc2(x, adj, self.C) )
-        x =               self.gc3(x, adj, self.C)
+        x =                F.leaky_relu( self.gc1(x, Anorm, self.C) )
+        x =                F.leaky_relu( self.gc2(x, Anorm, self.C) )
+        gene_activations = F.leaky_relu( self.gc3(x, Anorm, self.C) ) #? Should we be using a activation here? Forces pathway values to be only positive 
 
-        x = x.squeeze(2)
+        x = gene_activations.squeeze(2)
 
         #! GO pathway mapping 
         x = x @ self.GO  
-        x = F.leaky_relu ( x )        
+        pathway_activations = F.leaky_relu ( x )        
 
-        x = torch.matmul(x, self.out1)
+        x = torch.matmul(pathway_activations, self.out1)
         x = x[...,] + self.out1_bias
         x = F.leaky_relu( x )
 
@@ -78,7 +74,10 @@ class TORTOISE_GCN(nn.Module):
         #o = torch.mm(o, self.W_out2)
         #o = o.view(-1)
 
-        return o
+        if return_activations: 
+            return o, gene_activations, pathway_activations
+        else: 
+            return o
 
     def unfreeze_coupling(self, unfreeze, verbose=True):
         '''

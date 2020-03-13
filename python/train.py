@@ -25,8 +25,6 @@ import model
 import utils
 import config
 
-
-
 def plot_weight_changes(new, old):
     '''
     '''
@@ -42,16 +40,16 @@ def plot_weight_changes(new, old):
             print('param', param)
             print(param_delta)
             print(param_delta.shape)
-
-
+            raise
 
 def train(model, scheduler, optimizer, loss_function, plotter, training_generator, validation_generator, epoch, device):
     '''
 
     '''
-    _loss = 0 ; i = 0 ; tic = time.time() ; tr_ys = [] ; tr_yhats = []
+    _loss = 0 ; i = 0 ; tic = time.time() ; tr_ys = [] ; tr_yhats = []; first=True
     model.train()
     for A, X, y in training_generator:
+        if first: tic2 = time.time(); first = False
         A, X, y = A.to(device), X.to(device), y.to(device)
         i += X.size(0)
         optimizer.zero_grad()
@@ -62,28 +60,33 @@ def train(model, scheduler, optimizer, loss_function, plotter, training_generato
         _loss += loss.detach().cpu().numpy()
         loss.backward()
         optimizer.step()
-        print(f'epoch \t{epoch} --- progress: {i/len(training_generator.dataset)*100:.2f}% [{i}] --- batch loss: {loss:.4f} \t\t\t', end='\r')
+        print(f'epoch \t{epoch} --- progress: {i/len(training_generator.dataset)*100:.2f}% [{i}] --- batch loss: {loss:.4f} [avg time / obs:{1000*(time.time()-tic2)/i:.4f}ms  -- (init: {(tic2-tic):.2f}s)]\t\t\t', end='\r')
+        if config.SHORT_EPOCHS and i > config.EPOCH_SIZE: break
 
     model.eval()
     _vloss = 0 ; j = 0 ; tst_ys = [] ; tst_yhats = []
     for A, X, y in validation_generator:
+        A, X, y = A.to(device), X.to(device), y.to(device)
         j += X.size(0)
         output = model(X, A)
         tst_ys += y.detach().cpu().numpy().tolist()
         tst_yhats += output.detach().cpu().numpy().tolist()
         loss = loss_function(output, y)
         _vloss += loss.detach().cpu().numpy()
+        if config.SHORT_EPOCHS and j > config.EPOCH_SIZE: break
 
     scheduler.step(_vloss)
 
     try:
-        plotter.update(tr_ys, tr_yhats, tst_ys, tst_yhats, epoch, _loss, _vloss)
+        nplot = 10000 if len(tr_ys) > 10000 else len(tr_ys)
+        plotter.update(tr_ys[0:nplot], tr_yhats[0:nplot], tst_ys[0:nplot], tst_yhats[0:nplot], epoch, _loss, _vloss)
         plotter.save_gif(f'{config.OUTPUT_PATH}cancer107_training.gif')
     except:
         print('plotting failed. continuing...')
+        raise
 
     t = time.time() - tic
-    print(f'epoch {epoch} avg train log-loss: {np.log10(_loss/len(training_generator.dataset)):.3f} \t [avg val log-loss: {np.log10(_vloss/len(validation_generator.dataset)):.3f}] --- time elapsed: {t:.1f}s \t\t\t')
+    print(f'epoch {epoch} avg train log-loss: {np.log10(_loss/len(training_generator.dataset)):.3f} - [avg val log-loss: {np.log10(_vloss/len(validation_generator.dataset)):.3f}] --- time elapsed: {t:.1f}s \t\t\t')
 
 
 if __name__ == '__main__':
@@ -102,9 +105,11 @@ if __name__ == '__main__':
     # Generators
     training_set = utils.Dependency_Dataset(partition['train'], labels)
     training_generator = torch.utils.data.DataLoader(training_set, **config.params)
+    print('size of training set:', len(training_set))
 
     validation_set = utils.Dependency_Dataset(partition['val'], labels)
     validation_generator = torch.utils.data.DataLoader(validation_set, **config.params)
+    print('size of validation set:', len(validation_set))
 
     nnodes = training_set.ADJ.size()[0]
     print('number of nodes in graph:', nnodes)
@@ -128,13 +133,13 @@ if __name__ == '__main__':
     model.unfreeze_coupling(True)
     optimizer = optim.Adam(model.parameters(), lr=config.LR, weight_decay=config.L2)
     loss_function = torch.nn.SmoothL1Loss()
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True, min_lr=1e-5)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=config.DECAY_FACTOR, patience=config.PATIENCE, verbose=True, min_lr=1e-5)
 
     plotter = utils.Training_Progress_Plotter()
 
     old_state_dict = {}
     for key in model.state_dict():
-        old_state_dict[key] = model.state_dict()[key].clone()
+        old_state_dict[key] = model.state_dict()[key].clone().cpu()
 
     print('beginning training... use multiprocessing:', config.MULTIPROCESSING)
     for epoch in range(config.EPOCHS):
@@ -143,7 +148,10 @@ if __name__ == '__main__':
 
         new_state_dict = {}
         for key in model.state_dict():
-            new_state_dict[key] = model.state_dict()[key].clone()
+            new_state_dict[key] = model.state_dict()[key].clone().cpu()
+
+        with open(f'{config.OUTPUT_PATH}/model_state_dict-EPOCH_{epoch}.pkl', 'wb') as f:
+            pkl.dump(new_state_dict, f)
 
         plot_weight_changes(new_state_dict, old_state_dict)
         old_state_dict = new_state_dict

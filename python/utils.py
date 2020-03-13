@@ -10,6 +10,7 @@ from torch.utils import data
 import pickle as pkl
 import imageio
 import config
+import time 
 
 
 class Dependency_Dataset(data.Dataset):
@@ -40,32 +41,27 @@ class Dependency_Dataset(data.Dataset):
         '''
         Generates one sample of data. Note that the adjacency matrix returned is normalized by the degree matrix
         '''
+
         # Select sample ID
         ID = self.list_IDs[index]
         target = self.label_dict[ID]['target']
 
         # load expression data for given cell line
-        EXPR = torch.reshape(torch.load(f'{config.EXPR_PATH}{self.label_dict[ID]["ccle_line"]}.pt'), (self.ADJ.size(0), 1))
+        EXPR = torch.reshape(torch.load(f'{config.EXPR_PATH}{self.label_dict[ID]["ccle_line"]}.pt'), (self.ADJ.size(0), 1)).clone().detach().type(torch.float32)
+        EXPR.requires_grad = False
 
         # remove connections to/from target gene - operate on target
         A = self.ADJ.clone().detach().type(torch.float32)
+        A.requires_grad = False
+        
         # FROM any gene TO target gene
-        A[:, self.gene_order[target]] = 0
+        A[:, self.gene_order[target]] = 0 #! Use 1e-16 to avoid a singular matrix - not necessary since we're not inverting - just normalize
         # TO any gene FROM target gene
         A[self.gene_order[target], :] = 0
 
-        # calculate degree matrix for adjacency matrix
-        D = torch.sum(A, axis=0)
-        D = torch.diag(D)
-
-        Dinv = D**-1 #torch.inverse(D)  <------------------- Need to double check that torch **-1 works for inverse
-        Dinv[Dinv == float("Inf")] = 0
-
-        A_norm = torch.mm(Dinv, A)
-
         y = self.label_dict[ID]['response']
-
-        return A_norm.clone().detach().requires_grad_(False), EXPR, y
+        
+        return A, EXPR, y
 
 
 # plot and show learning process
@@ -86,13 +82,13 @@ class Training_Progress_Plotter:
         self.fig, self.axes = plt.subplots(1,2, figsize = self.figsize, sharey = True)
 
         ######### TRAIN #########
-        alpha_ = 0.5 #284./len(tst_ys)
+        alpha_ = 200./len(tr_ys) if len(tr_ys) > 200. else 1.
 
         tr_df = pd.DataFrame({'y':tr_ys, 'yhat':tr_yhats})
         tr_df.sort_values(by='y', inplace=True)
 
         self.axes[0].plot(tr_df.values[:,0], 'ro', label='true', alpha=alpha_)
-        self.axes[0].plot(tr_df.values[:,1], 'bo', label='predicted', alpha=0.1*alpha_)
+        self.axes[0].plot(tr_df.values[:,1], 'bo', label='predicted', alpha=alpha_)
 
         self.axes[0].set_title('Model output [Training Set]', fontsize=15)
         self.axes[0].set_xlabel('Sorted observations', fontsize=24)
@@ -104,14 +100,14 @@ class Training_Progress_Plotter:
         self.axes[0].set_ylim(bottom=self.ylim[0], top=self.ylim[1])
 
         ######### TEST #########
-        alpha_ = 200./len(tst_ys)
+        alpha_ = 200./len(tst_ys) if len(tst_ys) > 200. else 1.
 
         self.axes[1].cla()
         tst_df = pd.DataFrame({'y':tst_ys, 'yhat':tst_yhats})
         tst_df.sort_values(by='y', inplace=True)
 
         self.axes[1].plot(tst_df.values[:,0], 'ro', label='true', alpha=alpha_)
-        self.axes[1].plot(tst_df.values[:,1], 'bo', label='predicted', alpha=0.1*alpha_)
+        self.axes[1].plot(tst_df.values[:,1], 'bo', label='predicted', alpha=alpha_)
         plt.legend(loc='upper right')
 
         self.axes[1].set_title('Model output [Test Set]', fontsize=15)
@@ -123,13 +119,13 @@ class Training_Progress_Plotter:
         self.axes[1].set_ylim(bottom=self.ylim[0], top=self.ylim[1])
 
         # (https://ndres.me/post/matplotlib-animated-gifs-easily/)
-        self.fig.canvas.draw()       # draw the canvas, cache the renderer
-        image = np.frombuffer(self.fig.canvas.tostring_rgb(), dtype='uint8')
-        image = image.reshape(self.fig.canvas.get_width_height()[::-1] + (3,))
+        self.fig.canvas.draw()                                                   # draw the canvas, cache the renderer
+        image = np.frombuffer(self.fig.canvas.tostring_rgb(), dtype='uint8')     #  
+        image = image.reshape(self.fig.canvas.get_width_height()[::-1] + (3,))   #  
 
-        self.images.append(image)
-        plt.clf()
-        plt.close('all')
+        self.images.append(image)                                                #
+        plt.clf()                                                                #
+        plt.close('all')                                                         #
 
     def save_gif(self, path):
         '''

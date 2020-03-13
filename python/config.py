@@ -18,13 +18,24 @@ GO_MATRIX_PATH = '../data/MAPK&overlap_pathway_matrix.pt'
 
 SEED = 0
 
-LR = 5e-2
+## Learning Weight Scheduler 
+PATIENCE = 2 
+DECAY_FACTOR = 0.5
+
+# Optimizer 
+LR = 1e-2
 L2 = 1e-6
-EPOCHS = 100
 
-MULTIPROCESSING = False
-WORKERS = 2
+# Number Epochs 
+EPOCHS = 25
 
-params = {'batch_size': 500,
-          'shuffle': True,
-          'num_workers': 8}
+# Train on Subset 
+SHORT_EPOCHS = True      #! use this for hyperparameter optimization
+EPOCH_SIZE = 100000
+
+# Data Generator 
+params = {
+          'batch_size'   :    100,
+          'shuffle'      :    True,
+          'num_workers'  :    12
+          }
