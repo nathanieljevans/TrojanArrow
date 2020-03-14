@@ -60,26 +60,31 @@ def train(model, scheduler, optimizer, loss_function, plotter, training_generato
         _loss += loss.detach().cpu().numpy()
         loss.backward()
         optimizer.step()
-        print(f'epoch \t{epoch} --- progress: {i/len(training_generator.dataset)*100:.2f}% [{i}] --- batch loss: {loss:.4f} [avg time / obs:{1000*(time.time()-tic2)/i:.4f}ms  -- (init: {(tic2-tic):.2f}s)]\t\t\t', end='\r')
-        if config.SHORT_EPOCHS and i > config.EPOCH_SIZE: break
+        print(f'epoch \t{epoch} --- train progress: {i/len(training_generator.dataset)*100:.2f}% [{i}] --- batch loss: {loss:.4f} [avg time / obs: {1000*(time.time()-tic2)/i:.4f}ms  -- (init: {(tic2-tic):.2f}s)]\t\t\t', end='\r')
+        if config.SHORT_EPOCHS and i > config.TRAIN_EPOCH_SIZE: break
 
+    print()
     model.eval()
     _vloss = 0 ; j = 0 ; tst_ys = [] ; tst_yhats = []
     for A, X, y in validation_generator:
         A, X, y = A.to(device), X.to(device), y.to(device)
         j += X.size(0)
         output = model(X, A)
-        tst_ys += y.detach().cpu().numpy().tolist()
-        tst_yhats += output.detach().cpu().numpy().tolist()
+        tst_ys += y.detach().cpu().numpy().ravel().tolist()
+        tst_yhats += output.detach().cpu().numpy().ravel().tolist()
         loss = loss_function(output, y)
         _vloss += loss.detach().cpu().numpy()
-        if config.SHORT_EPOCHS and j > config.EPOCH_SIZE: break
+        print(f'epoch \t{epoch} --- val progress: {j/len(validation_generator.dataset)*100:.2f}% [{j}] --- batch loss: {loss:.4f} \t\t\t', end='\r')
+        if config.SHORT_EPOCHS and j > config.VAL_EPOCH_SIZE: break
 
-    scheduler.step(_vloss)
+    print()
+    scheduler.step(_loss)
 
     try:
         nplot = 10000 if len(tr_ys) > 10000 else len(tr_ys)
-        plotter.update(tr_ys[0:nplot], tr_yhats[0:nplot], tst_ys[0:nplot], tst_yhats[0:nplot], epoch, _loss, _vloss)
+        train_idx = np.random.choice(range(len(tr_ys)), size=nplot)
+        val_idx = np.random.choice(range(len(tst_ys)), size=nplot)
+        plotter.update(np.array(tr_ys)[train_idx], np.array(tr_yhats)[train_idx], np.array(tst_ys)[val_idx], np.array(tst_yhats)[val_idx], epoch, _loss, _vloss)
         plotter.save_gif(f'{config.OUTPUT_PATH}cancer107_training.gif')
     except:
         print('plotting failed. continuing...')
@@ -92,8 +97,10 @@ def train(model, scheduler, optimizer, loss_function, plotter, training_generato
 if __name__ == '__main__':
 
     print('starting...')
-    np.random.seed(config.SEED)
-    torch.manual_seed(config.SEED)
+    if config.USE_SEED: 
+        print('using seed:', config.SEED)
+        np.random.seed(config.SEED)
+        torch.manual_seed(config.SEED)
 
     print('loading data generators ... ')
     with open(f'{config.DATA_PATH}partition_dict.pkl', 'rb') as f:
@@ -128,10 +135,17 @@ if __name__ == '__main__':
 
     # Model and optimizer
     model = model.TORTOISE_GCN(nnodes=nnodes, nfeat=1, GO_mat=GO_matrix)
+    if config.USE_PRETRAINED_WEIGHTS: 
+        model.load_my_state_dict(config.STATE_DICT_PATH, params=None)
+        #print('using pretrained coupling matrix...')
+        #model.load_my_state_dict(config.STATE_DICT_PATH, params=['C'])
+        #print('using pretrained GCN layers...')
+        #model.load_my_state_dict(config.GCN_WEIGHTS_PATH, params=['gc1.W', 'gc1.B', 'gc2.W', 'gc2.B', 'gc3.W', 'gc3.W', 'gc3.B'])
+
     model.to(device)
 
     model.unfreeze_coupling(True)
-    optimizer = optim.Adam(model.parameters(), lr=config.LR, weight_decay=config.L2)
+    optimizer = config.OPTIMIZER(model.parameters(), lr=config.LR, weight_decay=config.L2)
     loss_function = torch.nn.SmoothL1Loss()
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=config.DECAY_FACTOR, patience=config.PATIENCE, verbose=True, min_lr=1e-5)
 
