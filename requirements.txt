@@ -3,8 +3,4 @@ matplotlib
 seaborn
 pandas
 torch
-time
-sys
-os 
-Ipython
 networkx
